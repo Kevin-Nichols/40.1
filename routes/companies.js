@@ -1,6 +1,7 @@
 /** Routes for companies in biztime. */
 
 const express = require("express");
+const slugify = require("slugify");
 const ExpressError = require("../expressError")
 const router = new express.Router();
 const db = require("../db");
@@ -8,7 +9,7 @@ const db = require("../db");
 router.get('/', async (req, res, next) => {
   try {
     const results = await db.query(
-      `SELECT code, name 
+      `SELECT code, name, description
       FROM companies`
       );
     return res.json({companies: results.rows});
@@ -19,16 +20,21 @@ router.get('/', async (req, res, next) => {
 
 router.get('/:code', async (req, res, next) => {
   try {
-    const {code} = req.params;
     const results = await db.query(
-      `SELECT * 
-      FROM companies 
-      WHERE code = $1`, [code]
+      `SELECT c.code, c.name, c.description, ind.industry
+      FROM companies AS c
+      LEFT JOIN comp_industries AS ci
+      ON c.code = ci.comp_code
+      LEFT JOIN industries AS ind
+      ON ci.ind_code = ind.code 
+      WHERE c.code = $1`, [req.params.code]
       );
     if (results.rows.length === 0) {
-      throw new ExpressError(`Cannot find company with code of ${code}`, 404)
+      throw new ExpressError(`Cannot find company with code of ${req.params.code}`, 404)
     }
-    return res.send({companies: results.rows[0]});
+    const {code, name, description} = results.rows[0];
+    const industry = results.rows.map(r => r.industry);
+    return res.send({code, name, description, industry});
   } catch (e) {
     return next(e);
   }
@@ -36,7 +42,8 @@ router.get('/:code', async (req, res, next) => {
 
 router.post('/', async (req, res, next) => {
   try {
-    const {code, name, description} = req.body;
+    const {name, description} = req.body;
+    const code = slugify(name, {lower: true});
     const results = await db.query(
       `INSERT INTO companies (code, name, description) 
       VALUES ($1, $2, $3) 
@@ -67,16 +74,17 @@ router.patch('/:code', async (req, res, next) => {
   }
 });
 
-router.delete('/:id', async (req, res, next) => {
+router.delete('/:code', async (req, res, next) => {
   try {
     const {code} = req.params;
-    const results = db.query(
+    const results = await db.query(
+      `DELETE FROM comp_industries 
+      WHERE comp_code = $1`, [code]
+      );
+    const results2 = await db.query(
       `DELETE FROM companies 
       WHERE code = $1`, [code]
       );
-    if (results.rows.length === 0) {
-      throw new ExpressError(`Cannot find company with code of ${code}`, 404)
-    }
     return res.send({msg: "Company Deleted!"});
   } catch (e) {
     return next(e);

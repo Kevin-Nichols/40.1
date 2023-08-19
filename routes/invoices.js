@@ -1,4 +1,4 @@
-/** Routes for invoices in biztime. */
+/** Routes for invoices in biztime. */ 
 
 const express = require("express");
 const ExpressError = require("../expressError")
@@ -90,9 +90,6 @@ router.delete('/:id', async (req, res, next) => {
       `DELETE FROM invoices 
       WHERE id = $1`, [id]
       );
-    if (results.rows.length === 0) {
-      throw new ExpressError(`Cannot find invoice with id of ${id}`, 404)
-    }
     return res.send({msg: "Invoice Deleted!"});
   } catch (e) {
     return next(e);
@@ -108,7 +105,7 @@ router.get('/companies/:code', async (req, res, next) => {
     );
 
     const iResults = await db.query(
-      `SELECT id 
+      `SELECT id
       FROM invoices 
       WHERE comp_code = $1`, [code]
       );
@@ -116,11 +113,11 @@ router.get('/companies/:code', async (req, res, next) => {
     if (cResults.rows.length === 0) {
       throw new ExpressError(`Cannot find company with code of ${code}`, 404)
     }
-    const c = cResults.rows[0];
-    const i = iResults.rows;
-    c.i= i.map(inv => inv.id);
+    const company = cResults.rows[0];
+    const invoices = iResults.rows;
+    company.invoices = invoices.map(inv => inv.id);
 
-    return res.send({companies: c});
+    return res.send({companies: company});
   } catch (e) {
     return next(e);
   }
